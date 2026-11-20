@@ -29,12 +29,12 @@ def build_agent(name: str, instructions: str, tools=None, output_type=None) -> A
     return Agent(name=name, instructions=instructions, tools=list(tools or []), model=model_name(), **kwargs)
 
 
-def _record(trace_id: str, agent: str, usage, latency_ms: int) -> None:
+def _record(trace_id: str, agent: str, usage, latency_ms: int, model: str | None = None) -> None:
     try:
         db.execute(
             "insert into llm_calls(trace_id, agent, model, input_tokens, output_tokens, latency_ms)"
             " values (%s, %s, %s, %s, %s, %s)",
-            (trace_id, agent, config.MODEL_NAME,
+            (trace_id, agent, model or config.MODEL_NAME,
              getattr(usage, "input_tokens", None), getattr(usage, "output_tokens", None), latency_ms),
         )
     except Exception:  # noqa: BLE001 — журнал не должен ронять ход
@@ -59,12 +59,17 @@ def tool_calls_of(items) -> list[dict]:
 
 async def run(agent: Agent, task, *, trace_id: str = ""):
     """Runner.run с записью в llm_calls; возвращает RunResult."""
+    from app import llm_pool
+
     started = time.monotonic()
-    try:
+    model = None
+    if llm_pool.enabled():  # бонус: failover между провайдерами, в журнал — фактический
+        provider, result = await llm_pool.run_with_failover(agent, task, max_turns=MAX_TURNS)
+        model = f"{provider.name}:{provider.model}"
+    else:
         result = await Runner.run(agent, task, max_turns=MAX_TURNS)
-    finally:
-        latency_ms = int((time.monotonic() - started) * 1000)
-    _record(trace_id, agent.name, result.context_wrapper.usage, latency_ms)
+    latency_ms = int((time.monotonic() - started) * 1000)
+    _record(trace_id, agent.name, result.context_wrapper.usage, latency_ms, model)
     return result
 
 
