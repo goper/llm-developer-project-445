@@ -1,0 +1,43 @@
+// Политики write-пути агента мобильного оператора (Dogwood: Cedar + temporal).
+//
+// Цикл карточки «да — что да?»: Prepare → ConfirmCard → Execute.
+// Семантика Cedar: deny by default, forbid перекрывает permit. Оператору
+// подходящего permit нет — смена тарифа ему запрещена отсутствием разрешения.
+// Каждый permit требует guard_ok: без пройденной проверки текста guardrail'ом
+// действия закрыты (fail-closed).
+
+// 1. Подготовка карточки — клиент с правом записи.
+permit (principal, action == Tel::Action::"Prepare", resource)
+when {
+    context.input.guard_ok &&
+    context.input.role == "client" &&
+    context.input.scopes.contains("tariffs:write")
+};
+
+// 2. «Да» — только по карточке, которая недавно готовилась.
+permit (principal, action == Tel::Action::"ConfirmCard", resource)
+when {
+    context.input.guard_ok &&
+    context.input.role == "client" &&
+    context.input.scopes.contains("tariffs:write")
+}
+when temporal {
+    formerly within 1h Tel::Action::"Prepare"::request{ input.pending_id: context.input.pending_id }
+};
+
+// 3. Исполнение — только после «да» по той же карточке.
+permit (principal, action == Tel::Action::"Execute", resource)
+when {
+    context.input.guard_ok &&
+    context.input.role == "client" &&
+    context.input.scopes.contains("tariffs:write")
+}
+when temporal {
+    formerly within 1h Tel::Action::"ConfirmCard"::request{ input.pending_id: context.input.pending_id }
+};
+
+// 4. Лимит: не более двух смен тарифа за окно сессии.
+forbid (principal, action == Tel::Action::"Execute", resource)
+when temporal {
+    count_within(24h, Tel::Action::"Execute"::request{ input.action: "tariff_change" }) > 2
+};

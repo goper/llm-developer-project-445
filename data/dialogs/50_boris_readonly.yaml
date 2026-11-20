@@ -1,0 +1,13 @@
+# Отказ: клиент без права записи — смены тарифа не видит, карточки нет.
+name: 50_boris_readonly
+user: boris
+turns:
+  - say: переведи меня на семейный тариф
+    expect:
+      card: false
+      reply_not_contains: ["отово"]
+      state: { sub: u_9b1c, tariff: Игровой }
+  - say: да
+    expect:
+      card: false
+      state: { sub: u_9b1c, tariff: Игровой }

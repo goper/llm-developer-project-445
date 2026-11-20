@@ -1,0 +1,9 @@
+# Лимит / эскалация: абонент просит живого оператора — создаётся тикет.
+name: 70_escalation
+user: anna
+turns:
+  - say: позовите живого оператора, хочу поговорить с человеком про роуминг
+    expect:
+      plan_has: [tickets]
+      card: false
+      state: { tickets_min: 1, tariff: Базовый }

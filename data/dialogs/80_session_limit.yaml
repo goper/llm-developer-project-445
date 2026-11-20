@@ -1,0 +1,18 @@
+# Лимит: третья смена тарифа за сессию запрещена политикой (session_limit).
+name: 80_session_limit
+user: anna
+turns:
+  - say: переведи меня на семейный
+    expect: { card: true }
+  - say: да
+    expect: { reply_contains: ["отово"], state: { tariff: Семейный } }
+  - say: теперь переведи меня на игровой
+    expect: { card: true }
+  - say: да
+    expect: { reply_contains: ["отово"], state: { tariff: Игровой } }
+  - say: верни меня на базовый тариф
+    expect: { card: true }
+  - say: да
+    expect:
+      reply_contains: ["дважды"]
+      state: { tariff: Игровой }

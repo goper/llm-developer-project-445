@@ -1,0 +1,13 @@
+# Успех (действие): отключение услуги через карточку и «да».
+name: 35_service_off
+user: anna
+turns:
+  - say: отключи мне услугу Музыка
+    expect:
+      plan_has: [tariff]
+      card: true
+      state: { service: { name: Музыка, enabled: true } }
+  - say: да
+    expect:
+      reply_contains: ["отово"]
+      state: { service: { name: Музыка, enabled: false } }
